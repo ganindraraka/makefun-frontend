@@ -25,5 +25,5 @@ export function timeLeft(iso) {
   const minutes = Math.floor((ms % 3600000) / 60000);
   if (days > 0) return `${days}d ${hours}h left`;
   if (hours > 0) return `${hours}h ${minutes}m left`;
-  return `${minutes}m left`;
+  return minutes > 0 ? `${minutes}m left` : `${Math.max(1, Math.ceil(ms / 1000))}s left`;
 }

@@ -1,15 +1,4 @@
-// make.fun's public API: read-only GET requests, open to any origin (CORS).
-// The full API is described at https://make.fun/api/openapi.json.
-
-const API = 'https://make.fun/api';
-
-async function get(path) {
-  const res = await fetch(API + path);
-  return res.json();
-}
-
-/** The open bounties: { items: [...] } (activity=times leaves out the activity a board does not show). */
-export const getBounties = () => get('/competitions?status=open&activity=times');
-
-/** One bounty, by its slug. */
-export const getBounty = (slug) => get(`/competitions/${encodeURIComponent(slug)}`);
+const memory=new Map(), pending=new Map(); const minute=()=>Math.floor(Date.now()/60000);
+export function peek(path){if(!memory.has(path)){try{const v=JSON.parse(sessionStorage.getItem('mf:'+path));if(v)memory.set(path,v)}catch{}}return memory.get(path)?.data}
+export async function get(path){peek(path);const c=memory.get(path);if(c?.minute===minute())return c.data;if(pending.has(path))return pending.get(path);const task=(async()=>{const stamp=minute();const res=await fetch('https://make.fun/api'+path,{headers:c?.etag?{'If-None-Match':c.etag}:{}});if(res.status!==304&&!res.ok)throw Error('Could not load this view. Please try again.');const v={data:res.status===304?c.data:await res.json(),etag:res.headers.get('ETag')||c?.etag,minute:stamp};memory.set(path,v);try{sessionStorage.setItem('mf:'+path,JSON.stringify(v))}catch{}return v.data})();pending.set(path,task);try{return await task}finally{pending.delete(path)}}
+export const boardPath='/competitions?status=open&activity=times&limit=100'; export const detailPath=s=>`/competitions/${encodeURIComponent(s)}?submissions=summary`; export const leaderboardPath=s=>`/competitions/${encodeURIComponent(s)}/leaderboard?rows=first&ties=runs`;

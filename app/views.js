@@ -1,40 +1,7 @@
-// The two pages, each a function from API data to HTML.
-
-import { date, esc, money, timeLeft } from './format.js';
-
-/** The reward as it stands now: the prize plus any entry fees paid into it. */
-const pot = (b) => money(b.potUsd ?? b.rewardAmount);
-
-/** The entry fee, when the bounty charges one. */
-const fee = (b) => (b.entryFeeUsd ? `${money(b.entryFeeUsd)} entry fee` : '');
-
-export function board(data) {
-  const rows = data.items
-    .map(
-      (b) => `
-      <li>
-        <a href="#/bounty/${encodeURIComponent(b.slug)}">${esc(b.title)}</a>
-        <span>${pot(b)}</span>
-        <span>${fee(b)}</span>
-        <span>${timeLeft(b.deadline)}</span>
-        <span>${b.submissionCount} ${b.submissionCount === 1 ? 'entry' : 'entries'}</span>
-      </li>`,
-    )
-    .join('');
-  return `<h1>Open bounties</h1><ul class="board">${rows}</ul>`;
-}
-
-export function bounty(b) {
-  return `
-    <p><a href="#/">All bounties</a></p>
-    <h1>${esc(b.title)}</h1>
-    <p>${esc(b.summary)}</p>
-    <dl>
-      <dt>Reward</dt><dd>${pot(b)}</dd>
-      ${b.entryFeeUsd ? `<dt>Entry fee</dt><dd>${money(b.entryFeeUsd)}</dd>` : ''}
-      <dt>Deadline</dt><dd>${date(b.deadline)} (${timeLeft(b.deadline)})</dd>
-      <dt>Entries</dt><dd>${b.submissionCount}</dd>
-    </dl>
-    <h2>Description</h2>
-    <div class="description">${esc(b.description)}</div>`;
-}
+import {esc,money,date,timeLeft} from './format.js'; export const icons={Code:'⌘',Games:'✣',Growth:'↗',Trading:'⌁',Forecasting:'◴'}; export const url=b=>'#/bounty/'+encodeURIComponent(b.slug); export const pot=b=>money(b.potUsd??b.rewardAmount); export const isOpen=b=>new Date(b.deadline)>Date.now()&&b.status==='open'; export const clock=b=>`<span data-deadline="${esc(b.deadline)}">${timeLeft(b.deadline)}</span>`;
+export function card(b){return `<article class="card" data-key="${esc(b.slug)}"><div class="card-top"><span class="category-icon">${icons[b.category]||'✳'}</span><span class="category">${esc(b.category)}</span><span class="card-arrow">↗</span></div><h3><a href="${url(b)}">${esc(b.title)}</a></h3><p class="card-summary">${esc(b.summary||b.description?.split('\n')[0])}</p><div class="tags">${(b.skills||[]).slice(0,3).map(s=>`<span>${esc(s)}</span>`).join('')}</div><div class="card-reward"><div><strong>${pot(b)}</strong><span>USDC prize pool</span></div><span class="fee">${Number(b.entryFeeUsd)?money(b.entryFeeUsd)+' entry':'Free entry'}</span></div><div class="card-bottom"><span>◷ ${clock(b)}</span><span>♧ ${b.submissionCount} entries</span></div></article>`}
+export function boardShell(){return `<section class="hero"><div class="hero-copy"><div class="eyebrow"><span></span> BIG IDEAS. REAL REWARDS.</div><h1>Make something great.<br><span>Get paid for it.</span></h1><p>Find a challenge. Build with AI. Win real rewards.<br>Your next great idea starts right here.</p><a class="button dark" href="#bounties" id="explore">Explore bounties <span>↓</span></a></div><div class="hero-art"><div class="orbit"></div><div class="orbit two"></div><span class="art-star">✳</span><span class="art-tag">&lt;/&gt; Build it.</span><span class="art-tag tag-win">↗ Win it.</span><span class="art-caption">GOOD IDEAS DESERVE MORE THAN A LIKE.</span></div></section><section class="stats"><div><span>◈</span><div><strong id="total-pot">—</strong><small>Up for grabs</small></div></div><div><span>⚑</span><div><strong id="open-count">—</strong><small>Open bounties</small></div></div><div><span>♧</span><div><strong id="entry-count">—</strong><small>Entries in the making</small></div></div><div class="stats-message">● Real challenges. Live opportunities.</div></section><section id="bounties"><div class="section-heading"><div><div class="eyebrow muted">FIND YOUR NEXT THING</div><h2>The bounty board<span class="heading-dot">.</span></h2></div><span class="live-label">● Live from make.fun</span></div><div class="board-toolbar"><div class="filters" id="filters">${['All bounties','Code','Games','Growth','Trading','Forecasting'].map((x,i)=>`<button class="filter ${!i?'selected':''}" data-category="${i?x:''}">${x}</button>`).join('')}</div><label class="search">⌕ <input id="search" placeholder="Search bounties…"></label></div><div class="results-bar"><span id="result-count">Finding opportunities…</span><label>Sort by <select id="sort"><option value="featured">Featured</option><option value="reward">Highest reward</option><option value="deadline">Closing soon</option></select></label></div><div id="cards" class="cards"></div><div id="board-more"></div></section><section class="bottom-callout"><span>✳</span><div><h2>Good at something? Prove it.</h2><p>One challenge could be the start of your next big thing.</p></div><a href="#/bounty/makefun-frontend-01">Find your challenge ↗</a></section>`}
+export function bounty(b,leader=false){return `<div class="breadcrumb"><a href="#/">Bounty board</a><span>/</span>${esc(b.category||'Bounty')}</div><section class="detail-head" id="detail-head"><div class="detail-icon category-icon">${icons[b.category]||'✳'}</div><div><div class="detail-badges"><span class="badge">● ${isOpen(b)?'Open for entries':'Entries closed'}</span><span class="category">${esc(b.category)}</span></div><h1>${esc(b.title)}</h1><p>by <strong>${esc(b.sponsor?.name||'make.fun')}</strong> ✓ · ${b.submissionCount} entries</p></div></section><nav class="tabs"><a class="${!leader?'selected':''}" href="${url(b)}">Overview</a><a class="${leader?'selected':''}" href="${url(b)}/leaderboard">Leaderboard <span>${b.submissionCount}</span></a></nav><div class="detail-layout"><div id="detail-content">${leader?'':overview(b)}</div><aside id="bounty-aside">${aside(b)}</aside></div>`}
+export function overview(b){return `<section class="paper"><div class="eyebrow muted">THE CHALLENGE</div><h2>About this bounty</h2><p class="lead">${esc(b.summary||'Build something excellent and show the world what you can do.')}</p><div class="prose">${esc(b.description||'').replace(/\n/g,'<br>')}</div></section><section class="paper"><h2>Rules & requirements</h2><div class="prose">${esc(b.rules||b.rulesNote||'Follow the challenge brief and submit before the deadline.').replace(/\n/g,'<br>')}</div></section><section class="paper"><h2>Reward breakdown</h2><table><thead><tr><th>Place</th><th>Base reward</th><th>Live reward</th></tr></thead><tbody>${(b.rewardsNow||[]).map(r=>`<tr><td>#${r.place}</td><td>${money(r.baseUsd)}</td><td><strong>${money(r.amountUsd)}</strong></td></tr>`).join('')}</tbody></table></section>`}
+export function aside(b){return `<section class="prize-panel"><div class="eyebrow">THE PRIZE POOL</div><div class="big-prize">${pot(b)}</div><span class="muted">Paid in USDC · Live pot</span><hr><div class="aside-row"><span>Entry fee</span><strong>${Number(b.entryFeeUsd)?money(b.entryFeeUsd):'Free'}</strong></div><div class="aside-row"><span>Time remaining</span><strong>${clock(b)}</strong></div><div class="aside-row"><span>Total entries</span><strong>${b.submissionCount}</strong></div><a class="button dark" href="${url(b)}/leaderboard">View leaderboard ↗</a></section><section class="paper timeline"><h3>Mark your calendar</h3><span>Deadline</span><p>${date(b.deadline)}</p></section>`}
+export function profile(p,limit=20){let r=p.record||{};return `<div class="breadcrumb"><a href="#/">Bounty board</a><span>/</span>Builder profile</div><section class="profile-head"><div class="avatar">${esc(p.handle.slice(0,2).toUpperCase())}</div><div><div class="eyebrow muted">THE BUILDER BEHIND THE BUILD</div><h1>${esc(p.display_name||p.handle)}</h1><p>@${esc(p.handle)}</p></div></section><section class="stats profile-stats"><div><div><strong>${r.competitions_entered||0}</strong><small>Bounties entered</small></div></div><div><div><strong>${r.competitions_won||0}</strong><small>Competitions won</small></div></div><div><div><strong>${money(r.prize_usd||0)}</strong><small>Rewards earned</small></div></div></section><section class="paper"><h2>Public information</h2><p>${esc(p.bio||'A builder on make.fun.')}</p>${p.wallet?`<p>Wallet: ${esc(p.wallet.address)}</p>`:''}</section><section class="paper"><h2>Builds & entries</h2>${(p.solutions||[]).slice(0,limit).map(s=>`<div class="solution"><a href="${url(s.competition)}"><strong>${esc(s.title)}</strong><p>${esc(s.competition.title)}</p></a><span>${s.placement?'#'+s.placement:'Submitted'}</span></div>`).join('')}${(p.solutions?.length||0)>limit?'<button class="button" id="more-solutions">Show more entries ↓</button>':''}</section>`}

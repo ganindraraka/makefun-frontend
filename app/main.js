@@ -1,31 +1,10 @@
-// A make.fun frontend: the board of open bounties and a page for each, on hash routes.
-//
-//   #/                the board
-//   #/bounty/<slug>   one bounty
-//
-// window.__shotReady is false while a page loads and true once its data is on screen, so a
-// screenshot script knows when to capture.
-
-import { getBounties, getBounty } from './api.js';
-import { board, bounty } from './views.js';
-
-const app = document.getElementById('app');
-
-async function render() {
-  window.__shotReady = false;
-  app.innerHTML = '<p>Loading…</p>';
-  const match = location.hash.match(/^#\/bounty\/([^/]+)/);
-  if (match) {
-    const b = await getBounty(decodeURIComponent(match[1]));
-    document.title = `${b.title} | make.fun bounties`;
-    app.innerHTML = bounty(b);
-  } else {
-    document.title = 'make.fun bounties';
-    app.innerHTML = board(await getBounties());
-  }
-  window.scrollTo(0, 0);
-  window.__shotReady = true;
-}
-
-window.addEventListener('hashchange', render);
-render();
+import {get,peek,boardPath,detailPath,leaderboardPath} from './api.js';
+import {boardShell,card,bounty,overview,aside,profile,isOpen} from './views.js';
+import {esc,money,timeLeft} from './format.js';
+const app=document.querySelector('#app');let token=0,refresh,boardData,category='',query='',sort='featured',page=1,shown=24;
+function region(id,html){const e=document.getElementById(id);if(e&&e.innerHTML!==String(html))e.innerHTML=html}
+function tick(){document.querySelectorAll('[data-deadline]').forEach(e=>{const t=timeLeft(e.dataset.deadline);if(e.textContent!==t)e.textContent=t})}
+function boardUpdate(data){boardData=data;let open=data.items.filter(isOpen);region('total-pot',money(open.reduce((s,b)=>s+Number(b.potUsd??b.rewardAmount),0)));region('open-count',open.length);region('entry-count',open.reduce((s,b)=>s+b.submissionCount,0).toLocaleString());let rows=open.filter(b=>(!category||category===b.category)&&(!query||(b.title+' '+b.skills?.join(' ')).toLowerCase().includes(query)));rows.sort((a,b)=>sort==='reward'?Number(b.potUsd)-Number(a.potUsd):sort==='deadline'?new Date(a.deadline)-new Date(b.deadline):Number(b.slug==='makefun-frontend-01')-Number(a.slug==='makefun-frontend-01')||Number(b.potUsd)-Number(a.potUsd));region('result-count',`<strong>${rows.length}</strong> bounties to make your mark`);const container=document.querySelector('#cards');const keys=new Set(rows.slice(0,shown).map(b=>b.slug));container.querySelectorAll('[data-key]').forEach(e=>{if(!keys.has(e.dataset.key))e.remove()});rows.slice(0,shown).forEach((b,i)=>{let el=[...container.children].find(x=>x.dataset.key===b.slug);const html=card(b);if(!el||el.outerHTML!==html){const t=document.createElement('template');t.innerHTML=html;const next=t.content.firstElementChild;if(el)el.replaceWith(next);el=next}if(container.children[i]!==el)container.insertBefore(el,container.children[i]||null)});region('board-more',rows.length>shown?'<button class="button" id="more-bounties">More opportunities ↓</button>':rows.length?' <p class="end-note">Good ideas are just the beginning. Go make something great. ✳</p>':'<p class="empty">No matches. Try another category or search.</p>')}
+function rankings(data){const entries=[...(data.entries||[]),...(data.rest||[])],pages=Math.max(1,Math.ceil(entries.length/25));page=Math.min(page,pages);const columns=(data.columns||[]).filter(c=>!c.hidden).slice(0,2);region('detail-content',`<section class="paper"><div class="eyebrow muted">THE ONES TO BEAT</div><h2>Leaderboard<span class="heading-dot">.</span></h2><p class="muted">${entries.length.toLocaleString()} ranked entries · ${esc(data.phase?.title||'Live')} · Provisional rankings</p><div class="table-scroll"><table><thead><tr><th>Rank</th><th>Builder / entry</th>${columns.map(c=>`<th>${esc(c.title)}</th>`).join('')}</tr></thead><tbody>${entries.slice((page-1)*25,page*25).map((r,i)=>`<tr><td><span class="rank rank-${r.rank}">${r.rank??i+1}</span></td><td><a class="handle" href="#/profile/${encodeURIComponent(r.handle)}"><span class="mini-avatar">${esc(r.handle?.slice(0,2).toUpperCase())}</span>${esc(r.handle)}</a><span class="entry-title">${esc(r.title)}</span></td>${columns.map(c=>`<td>${esc(r.display?.[c.key]??r.values?.[c.key]??(c.key===data.rank_key?((typeof r.display==='string'?r.display:r.value)??'—'):'—'))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>${!entries.length?'<div class="empty"><h3>Scores are under wraps</h3><p>Rankings will appear when the competition releases them.</p></div>':''}<div class="pagination"><button class="button" id="prev" ${page===1?'disabled':''}>← Previous</button><span>${page} / ${pages}</span><button class="button" id="next" ${page===pages?'disabled':''}>Next →</button></div></section>`);document.querySelector('#prev').onclick=()=>{page--;rankings(data)};document.querySelector('#next').onclick=()=>{page++;rankings(data)}}
+async function render(){const t=++token;window.__shotReady=false;refresh=null;const parts=(location.hash.slice(1)||'/').split('/').filter(Boolean).map(decodeURIComponent);app.innerHTML='<div class="loading"><span>✳</span><h2>Finding your next great thing…</h2></div>';try{if(!parts.length){app.innerHTML=boardShell();category='';query='';shown=24;document.querySelector('#board-more').onclick=e=>{if(e.target.closest('#more-bounties')){shown+=24;boardUpdate(boardData)}};document.title='make.fun — Build something worth winning.';document.querySelector('#explore').onclick=e=>{e.preventDefault();document.querySelector('#bounties').scrollIntoView({behavior:'smooth'})};document.querySelector('#filters').onclick=e=>{const b=e.target.closest('[data-category]');if(!b)return;category=b.dataset.category;document.querySelectorAll('.filter').forEach(x=>x.classList.toggle('selected',x===b));if(boardData)boardUpdate(boardData)};document.querySelector('#search').oninput=e=>{query=e.target.value.toLowerCase();if(boardData)boardUpdate(boardData)};document.querySelector('#sort').onchange=e=>{sort=e.target.value;if(boardData)boardUpdate(boardData)};refresh=async()=>{const d=await get(boardPath);if(t===token)boardUpdate(d)};if(peek(boardPath))boardUpdate(peek(boardPath));await refresh()}else if(parts[0]==='bounty'&&parts[1]){const slug=parts[1],leader=parts[2]==='leaderboard';let mounted=false;page=1;refresh=async()=>{const b=await get(detailPath(slug));if(t!==token)return;document.title=b.title+' | make.fun';if(!mounted){app.innerHTML=bounty(b,leader);mounted=true}else{const tmp=document.createElement('template');tmp.innerHTML=bounty(b,leader);region('detail-head',tmp.content.querySelector('#detail-head').innerHTML);region('bounty-aside',aside(b));if(!leader)region('detail-content',overview(b))}if(leader){const d=await get(leaderboardPath(slug));if(t===token)rankings(d)}};const cached=peek(detailPath(slug))||peek(boardPath)?.items.find(b=>b.slug===slug);if(cached){app.innerHTML=bounty(cached,leader);mounted=true}await refresh()}else if(['profile','account'].includes(parts[0])&&parts[1]){let limit=20;refresh=async()=>{const p=await get('/profiles/'+encodeURIComponent(parts[1]));if(t===token){document.title=p.handle+' | make.fun';const html=profile(p,limit);if(!document.querySelector('.profile-head'))app.innerHTML=html;else{const tmp=document.createElement('template');tmp.innerHTML=html;const oldNodes=[...app.children],newNodes=[...tmp.content.children];newNodes.forEach((n,i)=>{if(oldNodes[i]?.outerHTML!==n.outerHTML){if(oldNodes[i])oldNodes[i].replaceWith(n);else app.append(n)}})}const more=document.querySelector('#more-solutions');if(more)more.onclick=()=>{limit+=20;refresh()}}};await refresh()}else throw Error('Page not found.');if(t===token){tick();window.__shotReady=true}}catch(e){if(t!==token)return;app.innerHTML=`<section class="empty"><h1>A small bump in the road.</h1><p>${esc(e.message)}</p><button class="button dark" id="retry">Try again ↻</button> <a href="#/">Back to bounties</a></section>`;document.querySelector('#retry').onclick=render;window.__shotReady=true}}
+window.addEventListener('hashchange',()=>{window.scrollTo(0,0);render()});let minute=Math.floor(Date.now()/60000);setInterval(()=>{tick();const m=Math.floor(Date.now()/60000);if(m!==minute&&!document.hidden){minute=m;refresh?.().catch(()=>{})}},1000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh?.().catch(()=>{})});render();
